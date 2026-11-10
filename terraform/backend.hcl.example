@@ -1,0 +1,4 @@
+# Copy to backend.hcl and fill in the bucket created by terraform/bootstrap.
+# The state *key* is set per stack/environment, see README.
+bucket = "CHANGE-ME-devops-task-tfstate"
+region = "ap-south-1"
