@@ -1,0 +1,18 @@
+SSM command 1c0499a2-f61a-4402-beac-9c086ede5677 sent to i-0d298f350d50aabc2: /opt/app/deploy.sh deploy '<account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.2'
+2026-11-10T14:25:33Z [deploy] pulled <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.2
+2026-11-10T14:25:33Z [deploy] recorded previous image: <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4
+2026-11-10T14:25:34Z [deploy] started app from <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.2
+SSM status: Success
+SSM command 3cc07d82-33f2-4fd3-8b48-4a4db63509d5 sent to i-0d298f350d50aabc2: /opt/app/deploy.sh smoke '1.0.99'
+2026-11-10T14:26:44Z [deploy] smoke test FAILED after 30 attempts
+SSM status: Failed
+SSM command 3a6e8ea1-340f-42cc-9c74-323ee3a301b9 sent to i-0d298f350d50aabc2: /opt/app/deploy.sh rollback
+2026-11-10T14:26:52Z [deploy] rolling back from <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.2 to <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4
+2026-11-10T14:26:53Z [deploy] started app from <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4
+2026-11-10T14:26:57Z [deploy] smoke test passed (attempt 3)
+SSM status: Success
+SSM command 0a899cc5-05d8-4540-93f6-058cbcc8a9f7 sent to i-0d298f350d50aabc2: /opt/app/deploy.sh status
+current:  <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4
+previous: <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4
+container: app <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4 Up 10 seconds (health: starting)
+SSM status: Success
