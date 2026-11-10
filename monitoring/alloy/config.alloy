@@ -1,0 +1,81 @@
+// Grafana Alloy: discover every Docker container, tail its logs, parse the app's
+// JSON logs, and ship everything to Loki.
+//
+// Label strategy (low cardinality, see README):
+//   indexed labels       : service, container, level            (bounded sets)
+//   structured metadata  : path, method, status                  (filterable, not indexed)
+//   left in the log line : duration_ms, client_ip, message, ...  (unbounded values)
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "15s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+  // Containers opt in to JSON parsing with the label logging.format=json.
+  rule {
+    source_labels = ["__meta_docker_container_label_logging_format"]
+    target_label  = "log_format"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.containers.receiver]
+}
+
+loki.process "containers" {
+  // Only JSON-logging containers (our app) get parsed.
+  stage.match {
+    selector = "{log_format=\"json\"}"
+
+    stage.json {
+      expressions = {
+        level  = "level",
+        path   = "path",
+        method = "method",
+        status = "status",
+      }
+    }
+
+    // `level` has ~5 possible values -> safe as an indexed label.
+    stage.labels {
+      values = { level = "" }
+    }
+
+    // Request attributes are useful filters but would multiply streams if indexed.
+    stage.structured_metadata {
+      values = {
+        path   = "",
+        method = "",
+        status = "",
+      }
+    }
+  }
+
+  // log_format was only needed for routing; drop it to keep the label set minimal.
+  stage.label_drop {
+    values = ["log_format"]
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
