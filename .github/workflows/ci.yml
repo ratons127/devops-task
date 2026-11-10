@@ -83,7 +83,7 @@ jobs:
           # 0/1/2 are valid health states on a shared runner; 3 means the script itself broke.
           [ "$rc" -le 2 ]
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
