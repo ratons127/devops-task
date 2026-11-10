@@ -1,0 +1,29 @@
+#!/bin/bash
+# EC2 bootstrap (rendered by Terraform). Installs Docker, installs the deploy helper,
+# and starts the app if an initial image was provided.
+set -euo pipefail
+exec > >(tee -a /var/log/app-bootstrap.log) 2>&1
+
+dnf install -y docker
+systemctl enable --now docker
+
+install -d -m 0755 /opt/app /opt/app/state
+
+cat > /opt/app/app.env <<'EOF'
+AWS_REGION=${aws_region}
+APP_ENV=${app_env}
+LOG_GROUP=${log_group}
+LOG_LEVEL=${log_level}
+HOST_PORT=${host_port}
+EOF
+chmod 0644 /opt/app/app.env
+
+echo '${deploy_script_b64}' | base64 -d > /opt/app/deploy.sh
+chmod 0755 /opt/app/deploy.sh
+
+%{ if app_image != "" ~}
+/opt/app/deploy.sh deploy '${app_image}'
+/opt/app/deploy.sh smoke
+%{ else ~}
+echo "No initial image set; waiting for the CI pipeline to deploy one."
+%{ endif ~}
