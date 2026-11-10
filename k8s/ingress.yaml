@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: devops-task-app
+  namespace: devops-task
+  labels:
+    app.kubernetes.io/name: devops-task-app
+spec:
+  ingressClassName: nginx
+  rules:
+    # *.localtest.me resolves to 127.0.0.1, so no hosts-file edits are needed.
+    - host: devops-task.localtest.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: devops-task-app
+                port:
+                  name: http

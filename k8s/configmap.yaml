@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devops-task-app-config
+  namespace: devops-task
+  labels:
+    app.kubernetes.io/name: devops-task-app
+data:
+  PORT: "8080"
+  LOG_LEVEL: "INFO"
+  APP_ENV: "kind-local"
+  SHUTDOWN_TIMEOUT_SECONDS: "10"
