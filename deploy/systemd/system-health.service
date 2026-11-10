@@ -4,7 +4,7 @@
 #   sudo systemctl daemon-reload && sudo systemctl enable --now system-health.timer
 [Unit]
 Description=Host health check (CPU, memory, disk, load)
-Documentation=https://github.com/OWNER/devops-task#step-6-linux-automation
+Documentation=https://github.com/ratons127/devops-task#linux-automation-system_healthsh
 After=local-fs.target
 
 [Service]

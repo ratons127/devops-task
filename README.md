@@ -267,7 +267,7 @@ printf 'bucket = "%s"\nregion = "%s"\n' "$BUCKET" "$AWS_REGION" > terraform/back
 
 # 2. Shared resources: ECR + GitHub OIDC + CI role
 terraform -chdir=terraform/global init -backend-config=../backend.hcl
-terraform -chdir=terraform/global apply -var "github_repository=<owner>/<repo>"
+terraform -chdir=terraform/global apply -var "github_repository=ratons127/devops-task"
 #    (add -var create_github_oidc_provider=false if your account already has the GitHub OIDC provider)
 
 # 3. Staging environment (production is identical with "production")
@@ -285,7 +285,7 @@ To switch environments, re-run `init` with `-reconfigure` and the other `envs/*.
 
 ```bash
 terraform -chdir=terraform/app destroy -var-file=envs/staging.tfvars
-terraform -chdir=terraform/global destroy -var "github_repository=<owner>/<repo>"
+terraform -chdir=terraform/global destroy -var "github_repository=ratons127/devops-task"
 # the state bucket is kept on purpose (force_destroy = false); empty and delete it manually if wanted
 ```
 
