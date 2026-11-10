@@ -1,14 +1,34 @@
+# Grouped, weekly updates so dependency bumps arrive as a few reviewable PRs
+# instead of one PR per package.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /
     schedule: { interval: weekly }
+    open-pull-requests-limit: 3
+    groups:
+      python-runtime:
+        patterns: [fastapi, uvicorn, prometheus-client]
+      python-dev:
+        patterns: [pytest, pytest-cov, httpx, ruff]
+
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }
+    ignore:
+      # The builder's Python minor version must match the distroless runtime
+      # (python3-debian12 ships 3.11) so compiled wheels stay ABI compatible.
+      # Only digest/patch updates are wanted here.
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    groups:
+      github-actions:
+        patterns: ["*"]
+
   - package-ecosystem: terraform
     directory: /terraform/app
     schedule: { interval: weekly }
