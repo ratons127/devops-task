@@ -1,0 +1,56 @@
+$ kubectl -n devops-task get pods -o wide
+NAME                               READY   STATUS    RESTARTS   AGE   IP           NODE                  NOMINATED NODE   READINESS GATES
+devops-task-app-6bd68dd6ff-c5vdb   1/1     Running   0          20s   10.244.2.8   devops-task-worker    <none>           <none>
+devops-task-app-6bd68dd6ff-p5pjw   1/1     Running   0          20s   10.244.1.6   devops-task-worker2   <none>           <none>
+
+=== Rolling update to 1.0.1 ===
+$ kubectl -n devops-task set image deployment/devops-task-app app=devops-task-app:1.0.1
+deployment.apps/devops-task-app image updated
+$ kubectl -n devops-task rollout status deployment/devops-task-app --timeout=180s
+Waiting for deployment "devops-task-app" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "devops-task-app" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "devops-task-app" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "devops-task-app" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "devops-task-app" rollout to finish: 1 old replicas are pending termination...
+deployment "devops-task-app" successfully rolled out
+Probe during rollout: 94 requests, 0 non-200 responses
+Responses by status/version:
+       43 200 1.0.0
+       51 200 1.0.1
+$ curl -s http://devops-task.localtest.me/
+{"message":"Hello from DevOps Task!","status":"running","version":"1.0.1"}
+
+$ kubectl -n devops-task rollout history deployment/devops-task-app
+deployment.apps/devops-task-app 
+REVISION  CHANGE-CAUSE
+1         initial deploy 1.0.0
+2         rolling update to 1.0.1
+
+
+=== Rollback with kubectl rollout undo ===
+$ kubectl -n devops-task rollout undo deployment/devops-task-app
+deployment.apps/devops-task-app rolled back
+$ kubectl -n devops-task rollout status deployment/devops-task-app --timeout=180s
+Waiting for deployment "devops-task-app" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "devops-task-app" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "devops-task-app" rollout to finish: 1 out of 2 new replicas have been updated...
+Waiting for deployment "devops-task-app" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "devops-task-app" rollout to finish: 1 old replicas are pending termination...
+deployment "devops-task-app" successfully rolled out
+Probe during rollout: 95 requests, 0 non-200 responses
+Responses by status/version:
+       47 200 1.0.0
+       48 200 1.0.1
+$ curl -s http://devops-task.localtest.me/
+{"message":"Hello from DevOps Task!","status":"running","version":"1.0.0"}
+
+$ kubectl -n devops-task rollout history deployment/devops-task-app
+deployment.apps/devops-task-app 
+REVISION  CHANGE-CAUSE
+2         rolling update to 1.0.1
+3         initial deploy 1.0.0
+
+$ kubectl -n devops-task get pods
+NAME                               READY   STATUS    RESTARTS   AGE
+devops-task-app-6bd68dd6ff-qxk2v   1/1     Running   0          19s
+devops-task-app-6bd68dd6ff-rnxxl   1/1     Running   0          15s
