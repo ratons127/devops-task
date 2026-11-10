@@ -19,6 +19,20 @@ variable "github_repository" {
   }
 }
 
+variable "github_oidc_subject_prefix" {
+  description = <<-EOT
+    OIDC `sub` claim prefix GitHub issues for the repository. Leave null for the legacy
+    format (repo:owner/name). Repositories using immutable subjects need the ID form,
+    e.g. "repo:owner@123/name@456" (see `gh api repos/OWNER/REPO/actions/oidc/customization/sub`).
+  EOT
+  type        = string
+  default     = null
+  validation {
+    condition     = var.github_oidc_subject_prefix == null || can(regex("^repo:", var.github_oidc_subject_prefix))
+    error_message = "Must start with \"repo:\"."
+  }
+}
+
 variable "deploy_environments" {
   description = "GitHub Environments whose deploy jobs may assume the CI role."
   type        = list(string)
