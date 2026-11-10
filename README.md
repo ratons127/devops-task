@@ -227,7 +227,7 @@ There are **no secrets**: AWS access is via OIDC, and Cosign is keyless. Only no
 | Repo → Settings → **Environments** | `staging` | no protection | |
 | same | `production` | **Required reviewers** = you; deployment branch = `main` | gives a manual approval gate before production |
 
-The IAM trust policy only accepts OIDC tokens whose `sub` is `repo:<owner>/<repo>:ref:refs/heads/main` or `repo:<owner>/<repo>:environment:{staging,production}`, so forks, PRs and other branches cannot assume the role.
+The IAM trust policy only accepts OIDC tokens whose `sub` is `<prefix>:ref:refs/heads/main` or `<prefix>:environment:{staging,production}`, so forks, PRs and other branches cannot assume the role. `<prefix>` is GitHub's *immutable* subject (`repo:ratons127@<owner-id>/devops-task@<repo-id>`), so even a deleted-and-recreated repository with the same name cannot assume it. (My first release failed with `Not authorized to perform sts:AssumeRoleWithWebIdentity` because the policy used the legacy `repo:owner/name` form. CloudTrail showed the real `sub`, and the fix is the `github_oidc_subject_prefix` variable.)
 
 ### Evidence
 
@@ -267,7 +267,11 @@ printf 'bucket = "%s"\nregion = "%s"\n' "$BUCKET" "$AWS_REGION" > terraform/back
 
 # 2. Shared resources: ECR + GitHub OIDC + CI role
 terraform -chdir=terraform/global init -backend-config=../backend.hcl
-terraform -chdir=terraform/global apply -var "github_repository=ratons127/devops-task"
+# New GitHub repos issue "immutable" OIDC subjects that embed owner/repo IDs
+# (repo:owner@123/name@456:...). Read the exact prefix and pin the trust policy to it:
+PREFIX=$(gh api repos/ratons127/devops-task/actions/oidc/customization/sub --jq .sub_claim_prefix)
+terraform -chdir=terraform/global apply -var "github_repository=ratons127/devops-task" \
+  -var "github_oidc_subject_prefix=$PREFIX"
 #    (add -var create_github_oidc_provider=false if your account already has the GitHub OIDC provider)
 
 # 3. Staging environment (production is identical with "production")
