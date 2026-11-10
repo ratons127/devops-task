@@ -1,0 +1,80 @@
+name: Deploy
+
+# Reusable deploy: SSM Run Command -> /opt/app/deploy.sh on the EC2 host,
+# smoke test /health, automatic rollback to the previous image on failure.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      image:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        required: true
+      image:
+        description: Full image reference (registry/repo:tag) to deploy, e.g. for a manual rollback
+        type: string
+        required: true
+      version:
+        description: Version the app should report on / (the image tag)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: ${{ inputs.environment }}
+    runs-on: ubuntu-24.04
+    # GitHub Environment: holds per-env variables and, for production, required reviewers.
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy new image
+        id: deploy
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          IMAGE: ${{ inputs.image }}
+        run: ./scripts/ssm-run.sh "$ENVIRONMENT" "/opt/app/deploy.sh deploy '${IMAGE}'"
+
+      - name: Smoke test /health
+        id: smoke
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          VERSION: ${{ inputs.version }}
+        run: ./scripts/ssm-run.sh "$ENVIRONMENT" "/opt/app/deploy.sh smoke '${VERSION}'"
+
+      - name: Roll back to previous image
+        if: failure() && steps.deploy.outcome != 'skipped'
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          echo "::error::Deploy or smoke test failed - rolling back ${ENVIRONMENT}"
+          ./scripts/ssm-run.sh "$ENVIRONMENT" "/opt/app/deploy.sh rollback"
+          echo "### :rotating_light: ${ENVIRONMENT} rolled back to the previous image" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deployed state
+        if: always()
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: ./scripts/ssm-run.sh "$ENVIRONMENT" "/opt/app/deploy.sh status" | tee -a "$GITHUB_STEP_SUMMARY"

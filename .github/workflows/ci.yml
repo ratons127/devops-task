@@ -1,0 +1,150 @@
+name: CI
+
+# Runs on every PR, and is reused (workflow_call) by the release pipeline so that
+# main is gated by exactly the same checks.
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  HADOLINT_IMAGE: hadolint/hadolint:v2.12.0
+  TRIVY_IMAGE: aquasec/trivy:0.58.1
+  TERRAFORM_VERSION: "1.10.5"
+
+jobs:
+  app:
+    name: Lint, test & coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Ruff lint
+        run: ruff check --output-format=github .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Unit tests with coverage
+        run: pytest --cov-fail-under=80
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          echo "## Test coverage" >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          retention-days: 14
+
+  static:
+    name: Dockerfile, shell, Terraform & K8s lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: hadolint
+        run: docker run --rm -i "$HADOLINT_IMAGE" hadolint --failure-threshold warning - < Dockerfile
+
+      - name: shellcheck
+        # shellcheck is preinstalled on GitHub-hosted Ubuntu runners.
+        run: |
+          shellcheck --version
+          git ls-files '*.sh' | xargs --no-run-if-empty shellcheck --severity=style
+
+      - name: system_health.sh smoke run
+        run: |
+          set +e
+          bash scripts/system_health.sh --json --log-file "$RUNNER_TEMP/health_log.txt"
+          rc=$?
+          echo "exit code: $rc"
+          # 0/1/2 are valid health states on a shared runner; 3 means the script itself broke.
+          [ "$rc" -le 2 ]
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff terraform
+
+      - name: terraform validate
+        run: |
+          for dir in terraform/bootstrap terraform/global terraform/app; do
+            echo "::group::validate $dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+            echo "::endgroup::"
+          done
+
+      - name: kubeconform (k8s manifests)
+        if: hashFiles('k8s/**/*.yaml') != ''
+        run: |
+          docker run --rm -v "$PWD/k8s:/k8s:ro" ghcr.io/yannh/kubeconform:v0.6.7 \
+            -strict -summary -ignore-filename-pattern 'kustomization.yaml' \
+            -ignore-filename-pattern 'kind-config.yaml' /k8s
+
+  image:
+    name: Build & vulnerability scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image (amd64, loaded locally for scanning)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: devops-task-app:ci
+          build-args: |
+            APP_VERSION=ci-${{ github.sha }}
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,scope=app,mode=max
+
+      - name: Cache Trivy DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ github.run_id }}
+          restore-keys: trivy-db-
+
+      - name: Trivy report (HIGH + CRITICAL, informational)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+            "$TRIVY_IMAGE" image --no-progress --severity HIGH,CRITICAL --exit-code 0 devops-task-app:ci
+
+      - name: Trivy gate (fail on CRITICAL)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+            "$TRIVY_IMAGE" image --no-progress --severity CRITICAL --ignore-unfixed --exit-code 1 devops-task-app:ci
+
+      - name: Image size
+        run: |
+          size=$(docker image inspect devops-task-app:ci --format '{{.Size}}')
+          echo "Image size: $((size / 1024 / 1024)) MiB" | tee -a "$GITHUB_STEP_SUMMARY"
