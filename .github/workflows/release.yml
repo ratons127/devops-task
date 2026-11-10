@@ -33,7 +33,7 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       digest: ${{ steps.build.outputs.digest }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Compute version and tags
         id: version
