@@ -1,0 +1,9 @@
+aws_iam_role.ci: Modifying... [id=devops-task-github-actions]
+aws_iam_role.ci: Modifications complete after 3s [id=devops-task-github-actions]
+
+Apply complete! Resources: 0 added, 1 changed, 0 destroyed.
+
+Outputs:
+
+ci_role_arn = "arn:aws:iam::<account-id>:role/devops-task-github-actions"
+ecr_repository_url = "<account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app"

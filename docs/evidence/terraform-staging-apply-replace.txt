@@ -1,0 +1,17 @@
+aws_instance.app: Destroying... [id=i-098d6ba1fa17fa6e1]
+aws_instance.app: Still destroying... [id=i-098d6ba1fa17fa6e1, 10s elapsed]
+aws_instance.app: Still destroying... [id=i-098d6ba1fa17fa6e1, 20s elapsed]
+aws_instance.app: Still destroying... [id=i-098d6ba1fa17fa6e1, 30s elapsed]
+aws_instance.app: Destruction complete after 30s
+aws_instance.app: Creating...
+aws_instance.app: Still creating... [10s elapsed]
+aws_instance.app: Creation complete after 14s [id=i-0d298f350d50aabc2]
+
+Apply complete! Resources: 1 added, 0 changed, 1 destroyed.
+
+Outputs:
+
+app_url = "http://ec2-43-204-214-155.ap-south-1.compute.amazonaws.com"
+instance_id = "i-0d298f350d50aabc2"
+log_group = "/devops-task/staging/app"
+public_ip = "43.204.214.155"

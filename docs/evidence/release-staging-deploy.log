@@ -1,0 +1,12 @@
+SSM command 2ecc68de-b876-4b91-84a0-f417131a6aa3 sent to i-0d298f350d50aabc2: /opt/app/deploy.sh deploy '<account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4'
+2026-11-10T14:23:17Z [deploy] pulled <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4
+2026-11-10T14:23:18Z [deploy] started app from <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4
+SSM status: Success
+SSM command 2b425a2e-9e40-44a0-b0c0-a3a849614502 sent to i-0d298f350d50aabc2: /opt/app/deploy.sh smoke '1.0.4'
+2026-11-10T14:23:26Z [deploy] smoke test passed (attempt 1)
+SSM status: Success
+SSM command 53641e34-bfe4-41b8-9501-e1d23c0620dd sent to i-0d298f350d50aabc2: /opt/app/deploy.sh status
+current:  <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4
+previous: -
+container: app <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4 Up 20 seconds (healthy)
+SSM status: Success
