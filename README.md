@@ -74,6 +74,7 @@ A small Python (FastAPI) web service taken end to end:
 | kind, kubectl | kind 0.31, kubectl 1.34 | Kubernetes section |
 | Terraform | ≥ 1.10 | AWS section |
 | AWS CLI v2 | 2.x | AWS section |
+| jq | 1.6+ | `scripts/ssm-run.sh` when run outside CI (preinstalled on GitHub runners) |
 
 ### Run the app only
 
