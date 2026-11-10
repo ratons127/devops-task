@@ -232,13 +232,48 @@ The IAM trust policy only accepts OIDC tokens whose `sub` is `<prefix>:ref:refs/
 
 ### Evidence
 
-> AWS resources were destroyed after testing (as requested), so the evidence lives here:
->
-> - `docs/screenshots/ci-pr.png`: PR checks passing
-> - `docs/screenshots/release-run.png`: release workflow: build-push → staging → production
-> - `docs/screenshots/deploy-rollback.png`: a deliberately broken release being rolled back
->
-> *(Screenshots are added after the pipeline run against my AWS account.)*
+The pipeline was run against a real AWS account (ap-south-1). The workflow runs stay public in the Actions tab, and the key output is copied into `docs/evidence/` (account ID redacted). The AWS resources were destroyed afterwards.
+
+| What | Run | Captured output |
+|---|---|---|
+| PR checks (lint, test, scan) | [PR #1 CI](https://github.com/ratons127/devops-task/actions/runs/42824103732) | |
+| Release: CI gates → multi-arch build → ECR push + sign → **staging deploy + smoke test** → production waiting for approval | [Release run](https://github.com/ratons127/devops-task/actions/runs/42832678504) | [`release-staging-deploy.log`](docs/evidence/release-staging-deploy.log) |
+| **Automatic rollback**: deploy whose smoke test fails → rolled back to the previous image | [Deploy run](https://github.com/ratons127/devops-task/actions/runs/42833915762) | [`staging-auto-rollback.log`](docs/evidence/staging-auto-rollback.log) |
+
+Successful deploy (image `1.0.4`, version = `VERSION` + run number):
+
+```
+[deploy] pulled <account-id>.dkr.ecr.ap-south-1.amazonaws.com/devops-task-app:1.0.4
+[deploy] started app from .../devops-task-app:1.0.4
+[deploy] smoke test passed (attempt 1)
+container: app .../devops-task-app:1.0.4 Up 20 seconds (healthy)
+```
+
+Rollback demo. The deploy was dispatched manually with the older image `1.0.2` but an expected version of `1.0.99`. This simulates a release that does not come up correctly: the version check in the smoke test fails, and the workflow's `if: failure()` step rolls back:
+
+```
+[deploy] recorded previous image: .../devops-task-app:1.0.4
+[deploy] started app from .../devops-task-app:1.0.2
+[deploy] smoke test FAILED after 30 attempts
+::error::Deploy or smoke test failed - rolling back staging
+[deploy] rolling back from .../devops-task-app:1.0.2 to .../devops-task-app:1.0.4
+[deploy] smoke test passed (attempt 3)
+current:  .../devops-task-app:1.0.4
+```
+
+The job is deliberately left **red**: a deploy that needed a rollback is a failed deploy, and it blocks promotion to production.
+
+### Problems found by running it for real
+
+Running against real AWS surfaced three bugs that local linting and tests could not catch. Each one was fixed in its own PR:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `HOST_PORT: readonly variable` on EC2 | `deploy.sh` marked `HOST_PORT` readonly before sourcing `app.env`, which sets it again | [PR #14](https://github.com/ratons127/devops-task/pull/14): apply defaults after sourcing |
+| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | New GitHub repos send *immutable* OIDC subjects (`repo:owner@id/name@id:…`); the trust policy expected `repo:owner/name` (seen in CloudTrail) | [PR #15](https://github.com/ratons127/devops-task/pull/15): `github_oidc_subject_prefix` variable |
+| `./scripts/ssm-run.sh: Permission denied` (exit 126) | Scripts committed from Windows as mode `100644` | [PR #16](https://github.com/ratons127/devops-task/pull/16): `git update-index --chmod=+x`; `.gitattributes` already forces LF |
+
+This is the reason for having a staging environment ahead of production.
 
 ---
 
@@ -312,10 +347,15 @@ terraform -chdir=terraform/global destroy -var "github_repository=ratons127/devo
 
 ### Evidence
 
-> - `docs/terraform-plan-staging.txt`: `terraform plan` output
-> - `docs/screenshots/terraform-apply.png`: successful apply
->
-> *(Added after running against my AWS account; resources destroyed afterwards.)*
+All output is from real runs, with the account ID and my IP redacted:
+
+| Stack | Plan | Apply |
+|---|---|---|
+| bootstrap | | [`terraform-bootstrap-apply.txt`](docs/evidence/terraform-bootstrap-apply.txt) (5 added) |
+| global | [`terraform-global-plan.txt`](docs/evidence/terraform-global-plan.txt) | [`terraform-global-apply.txt`](docs/evidence/terraform-global-apply.txt) (5 added), [`terraform-global-apply-oidc-fix.txt`](docs/evidence/terraform-global-apply-oidc-fix.txt) (1 changed) |
+| app (staging) | [`terraform-staging-plan.txt`](docs/evidence/terraform-staging-plan.txt) (10 to add) | [`terraform-staging-apply.txt`](docs/evidence/terraform-staging-apply.txt), [`terraform-staging-apply-replace.txt`](docs/evidence/terraform-staging-apply-replace.txt) (instance replaced to ship the `deploy.sh` fix) |
+
+The `.terraform.lock.hcl` files are committed with hashes for linux/amd64, windows/amd64 and darwin/arm64, so CI and every developer install exactly the same provider builds.
 
 ---
 
