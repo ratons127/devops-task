@@ -1,0 +1,27 @@
+# Install:
+#   sudo install -m 0755 scripts/system_health.sh /usr/local/bin/system_health.sh
+#   sudo cp deploy/systemd/system-health.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now system-health.timer
+[Unit]
+Description=Host health check (CPU, memory, disk, load)
+Documentation=https://github.com/OWNER/devops-task#step-6-linux-automation
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/system_health.sh --log-file /var/log/system_health/health_log.txt --quiet
+# Exit 1 (warning) is a successful run; exit 2 (critical) marks the unit failed,
+# so it shows up in `systemctl --failed` and node_exporter's systemd collector.
+SuccessExitStatus=1
+LogsDirectory=system_health
+Nice=10
+IOSchedulingClass=idle
+# Hardening: the script only reads /proc and writes its own log directory.
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
