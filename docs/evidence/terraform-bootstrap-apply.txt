@@ -1,0 +1,16 @@
+aws_s3_bucket.state: Creating...
+aws_s3_bucket.state: Creation complete after 3s [id=devops-task-tfstate-<account-id>]
+aws_s3_bucket_public_access_block.state: Creating...
+aws_s3_bucket_versioning.state: Creating...
+aws_s3_bucket_server_side_encryption_configuration.state: Creating...
+aws_s3_bucket_public_access_block.state: Creation complete after 0s [id=devops-task-tfstate-<account-id>]
+aws_s3_bucket_policy.state: Creating...
+aws_s3_bucket_policy.state: Creation complete after 1s [id=devops-task-tfstate-<account-id>]
+aws_s3_bucket_server_side_encryption_configuration.state: Creation complete after 1s [id=devops-task-tfstate-<account-id>]
+aws_s3_bucket_versioning.state: Creation complete after 2s [id=devops-task-tfstate-<account-id>]
+
+Apply complete! Resources: 5 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+state_bucket = "devops-task-tfstate-<account-id>"
