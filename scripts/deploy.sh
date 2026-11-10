@@ -13,8 +13,8 @@ set -euo pipefail
 readonly STATE_DIR="/opt/app/state"
 readonly ENV_FILE="/opt/app/app.env"
 readonly CONTAINER="app"
-readonly HOST_PORT="${HOST_PORT:-80}"
-readonly SMOKE_RETRIES="${SMOKE_RETRIES:-30}"
+# HOST_PORT / SMOKE_RETRIES may be set by app.env, so they are finalised in load_env()
+# (marking them readonly here would make `source app.env` fail).
 
 log() { printf '%s [deploy] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 die() { log "ERROR: $*" >&2; exit 1; }
@@ -31,6 +31,9 @@ load_env() {
   : "${AWS_REGION:?AWS_REGION must be set in $ENV_FILE}"
   : "${APP_ENV:?APP_ENV must be set in $ENV_FILE}"
   : "${LOG_GROUP:?LOG_GROUP must be set in $ENV_FILE}"
+  HOST_PORT="${HOST_PORT:-80}"
+  SMOKE_RETRIES="${SMOKE_RETRIES:-30}"
+  readonly HOST_PORT SMOKE_RETRIES
   mkdir -p "$STATE_DIR"
 }
 
