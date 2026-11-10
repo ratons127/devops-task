@@ -1,0 +1,166 @@
+# Observability stack. Run together with the app:
+#   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+#
+# Network layout:
+#   monitoring     internal-only network (no host exposure, no internet egress)
+#   app            the app's network; only Prometheus joins it (to scrape /metrics)
+#   grafana-public the ONLY network with a published port (Grafana :3000)
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=2GB
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    networks: [monitoring, app]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 1G }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: loki
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./monitoring/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    networks: [monitoring]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 1G }
+
+  alloy:
+    image: grafana/alloy:v1.5.1
+    container_name: alloy
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      # Read-only Docker socket: used for container discovery and reading container logs.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [monitoring]
+    depends_on: [loki]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512M }
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: node-exporter
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($|/)
+    # Host PID namespace so process/CPU stats reflect the host, not this container.
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      # On a real Linux host add ",rslave" so mounts created later are visible;
+      # Docker Desktop's VM does not support shared/slave propagation for "/".
+      - /:/rootfs:ro
+    networks: [monitoring]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.57.0
+    container_name: cadvisor
+    # cAdvisor needs privileged access to read cgroup stats for every container
+    # (and /dev/kmsg for OOM events). It has no published ports.
+    privileged: true
+    devices:
+      - /dev/kmsg
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=15s
+      - --store_container_labels=false
+      - --whitelisted_container_labels=com.docker.compose.service
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks: [monitoring]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      # Fails fast if the password is not provided via .env / the environment.
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/application.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    networks: [monitoring, grafana-public]
+    depends_on: [prometheus, loki]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 512M }
+
+  # Optional traffic generator for demos/screenshots:
+  #   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml --profile demo up -d
+  loadgen:
+    image: curlimages/curl:8.11.1
+    container_name: loadgen
+    profiles: [demo]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          for i in 1 2 3 4 5 6 7 8 9; do curl -s -o /dev/null http://app:8080/; done
+          curl -s -o /dev/null http://app:8080/not-found
+          curl -s -o /dev/null http://app:8080/error
+          sleep 0.5
+        done
+    networks: [app]
+
+networks:
+  monitoring:
+    name: devops-task-monitoring
+    internal: true
+  grafana-public:
+    name: devops-task-grafana
+
+volumes:
+  prometheus-data:
+  loki-data:
+  alloy-data:
+  grafana-data:
