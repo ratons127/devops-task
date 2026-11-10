@@ -1,0 +1,4 @@
+# Normalise line endings to LF in the repo; shell scripts and unit files must stay LF
+# even when checked out on Windows.
+* text=auto eol=lf
+*.png binary
