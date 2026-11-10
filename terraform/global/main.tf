@@ -84,9 +84,15 @@ locals {
   : data.aws_iam_openid_connect_provider.github[0].arn)
 
   # Only main-branch runs and the protected deploy environments may assume the role.
+  # New GitHub repositories use "immutable" subject claims that embed the owner and
+  # repository IDs (repo:owner@123/name@456:...), so a deleted-and-recreated repo with
+  # the same name cannot assume this role. Find the prefix with:
+  #   gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq .sub_claim_prefix
+  subject_prefix = coalesce(var.github_oidc_subject_prefix, "repo:${var.github_repository}")
+
   allowed_subjects = concat(
-    ["repo:${var.github_repository}:ref:refs/heads/main"],
-    [for env in var.deploy_environments : "repo:${var.github_repository}:environment:${env}"],
+    ["${local.subject_prefix}:ref:refs/heads/main"],
+    [for env in var.deploy_environments : "${local.subject_prefix}:environment:${env}"],
   )
 }
 
