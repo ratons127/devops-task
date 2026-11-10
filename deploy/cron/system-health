@@ -1,0 +1,7 @@
+# Alternative to the systemd timer. Install with:
+#   sudo install -m 0755 scripts/system_health.sh /usr/local/bin/system_health.sh
+#   sudo install -m 0644 deploy/cron/system-health /etc/cron.d/system-health
+# Format: m h dom mon dow user command
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+*/5 * * * * root /usr/local/bin/system_health.sh --log-file /var/log/system_health/health_log.txt --quiet 2>&1 | logger -t system_health

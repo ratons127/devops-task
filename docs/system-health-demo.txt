@@ -1,0 +1,57 @@
+
+$ system_health.sh 
+[WARNING] Disk /t.sh usage 85% >= warning threshold 80%
+===== 2026-11-10T13:09:59Z cc9b8463aa9c status=WARNING =====
+CPU:     3% (12 cores)
+Memory:  15% (2384 / 15877 MB)
+Load:    0.44 0.48 0.47 (1m 5m 15m)
+Disks:
+  /etc/hosts                     ext4       2%  (11900 / 1031018 MB)
+  /src                           9p        52%  (128206 / 250638 MB)
+  /t.sh                          9p        85%  (189231 / 224919 MB)
+Top 5 processes by memory:
+  PID      USER           MEM%     RSS_KB  COMMAND
+  184      root            0.0       4480  ps
+  168      root            0.0       3968  bash
+  1        root            0.0       3200  bash
+  183      root            0.0       2400  bash
+  186      root            0.0       2048  awk
+[WARNING] Disk /t.sh usage 85% >= warning threshold 80%
+exit=1
+
+$ system_health.sh --json --quiet
+[WARNING] Disk /t.sh usage 85% >= warning threshold 80%
+exit=1
+valid JSON, keys: ['timestamp', 'host', 'status', 'cpu', 'memory', 'load_avg', 'disks', 'top_processes_by_mem', 'messages']
+
+$ system_health.sh --cpu 1 --mem 1 --disk 99 --cpu-crit 100 --mem-crit 100 --disk-crit 100 --quiet
+[WARNING] CPU usage 2% >= warning threshold 1%
+[WARNING] Memory usage 15% >= warning threshold 1%
+exit=1
+
+$ system_health.sh --disk 1 --disk-crit 2 --quiet
+[CRITICAL] Disk /etc/hosts usage 2% >= critical threshold 2%
+[CRITICAL] Disk /src usage 52% >= critical threshold 2%
+[CRITICAL] Disk /t.sh usage 85% >= critical threshold 2%
+exit=2
+
+$ system_health.sh --cpu 150
+[ERROR] --cpu must be an integer between 1 and 100 (got '150')
+exit=3
+[ERROR] unknown option: --bogus
+exit=3
+
+== rotation
+ 
+4096 .
+4096 ..
+1472 health_log.txt
+2208 health_log.txt.1
+2208 health_log.txt.2
+3304 health_log.txt.3
+0 health_log.txt.lock
+Usage: system_health.sh [options]
+
+Collect host health metrics, append them to a log file and report threshold breaches.
+
+Thresholds (percent, integers 1-100):
