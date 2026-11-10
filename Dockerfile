@@ -30,7 +30,7 @@ LABEL org.opencontainers.image.title="devops-task-app" \
       org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.source="https://github.com/OWNER/devops-task"
+      org.opencontainers.image.source="https://github.com/ratons127/devops-task"
 
 ENV PYTHONPATH=/opt/deps \
     PYTHONDONTWRITEBYTECODE=1 \
